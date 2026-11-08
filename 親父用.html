@@ -333,6 +333,12 @@ button{cursor:pointer}
   font-weight:700;
 }
 
+.status{min-width:44px;justify-content:center}
+#statusText{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (min-width:480px){
+  #statusText{position:static;width:auto;height:auto;overflow:visible;clip:auto}
+}
+.ver{margin:0;font-size:12px;color:var(--ink-2)}
 @keyframes blink{50%{opacity:.35}}
 @keyframes ring{
   0%{box-shadow:0 0 0 0 var(--live-ring)}
@@ -349,6 +355,7 @@ button{cursor:pointer}
     <h1>その場字幕</h1>
     <div class="top-right">
       <span class="status" id="status" data-state="off"><i class="dot" aria-hidden="true"></i><span id="statusText">音声オフ</span></span>
+      <button class="btn-quiet" id="resetBtn" type="button">リセット</button>
       <button class="btn-quiet" id="settingsBtn" type="button" aria-expanded="false" aria-controls="settings">設定</button>
     </div>
   </header>
@@ -390,6 +397,7 @@ button{cursor:pointer}
       <div class="seg" id="vanishSeg"></div>
     </div>
     <button type="button" class="btn-clear" id="clearBtn">いまの表示をすべて消す</button>
+    <p class="ver">バージョン 3</p>
   </section>
 
   <div class="dock">
@@ -415,7 +423,7 @@ button{cursor:pointer}
   const app = $('app'), stage = $('stage'), linesEl = $('lines'), liveEl = $('live'),
         guide = $('guide'), notice = $('notice'), noticeText = $('noticeText'),
         statusEl = $('status'), statusText = $('statusText'), micBtn = $('micBtn'),
-        form = $('composer'), input = $('msg'), settingsBtn = $('settingsBtn'), micLabel = $('micLabel'), kbdBtn = $('kbdBtn'),
+        form = $('composer'), input = $('msg'), settingsBtn = $('settingsBtn'), micLabel = $('micLabel'), kbdBtn = $('kbdBtn'), resetBtn = $('resetBtn'),
         settingsEl = $('settings');
 
   /* ---------- settings (per-viewer convenience only; captions are never stored) ---------- */
@@ -434,7 +442,7 @@ button{cursor:pointer}
 
   /* ---------- captions ---------- */
   const SAMPLE_LIFE = 30000;
-  const MAX_LINES = 60;
+  const MAX_LINES = 1000;
   const timeFmt = new Intl.DateTimeFormat('ja-JP', { hour: '2-digit', minute: '2-digit', hour12: false });
   const lines = [];
   let seq = 0;
@@ -512,10 +520,14 @@ button{cursor:pointer}
     lines.slice().forEach((r) => {
       const life = lifeOf(r);
       if (!life) {
-        r.bar.style.transform = 'scaleX(1)';
-        r.el.style.opacity = '';
+        if (!r.fixed) {
+          r.bar.style.transform = 'scaleX(1)';
+          r.el.style.opacity = '';
+          r.fixed = true;
+        }
         return;
       }
+      r.fixed = false;
       const remain = r.born + life - now;
       if (remain <= 0) { removeLine(r, false); return; }
       r.bar.style.transform = 'scaleX(' + (remain / life).toFixed(3) + ')';
@@ -535,8 +547,14 @@ button{cursor:pointer}
   }
 
   /* ---------- notice ---------- */
-  function showNotice(msg) { noticeText.textContent = msg; notice.hidden = false; }
-  function hideNotice() { notice.hidden = true; }
+  let noticeTimer = null;
+  function showNotice(msg, autoHideMs) {
+    clearTimeout(noticeTimer);
+    noticeText.textContent = msg;
+    notice.hidden = false;
+    if (autoHideMs) noticeTimer = setTimeout(() => { notice.hidden = true; }, autoHideMs);
+  }
+  function hideNotice() { clearTimeout(noticeTimer); notice.hidden = true; }
   $('noticeClose').addEventListener('click', hideNotice);
 
   /* ---------- settings UI ---------- */
@@ -607,6 +625,10 @@ button{cursor:pointer}
   let wantMic = false;
   let restarts = [];
   let hadStarted = false;
+  let lastResult = Date.now();
+  let hinted = false;
+  let stoppedByHide = false;
+  let resumeTry = false;
 
   function setStatus(state) {
     statusEl.dataset.state = state;
@@ -622,8 +644,9 @@ button{cursor:pointer}
     rec.lang = 'ja-JP';
     rec.continuous = true;
     rec.interimResults = true;
-    rec.onstart = () => { hadStarted = true; };
+    rec.onstart = () => { hadStarted = true; resumeTry = false; };
     rec.onresult = (e) => {
+      lastResult = Date.now();
       let interim = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const r = e.results[i];
@@ -634,6 +657,13 @@ button{cursor:pointer}
     };
     rec.onerror = (e) => {
       const code = e.error;
+      if (resumeTry && !hadStarted && code !== 'no-speech') {
+        resumeTry = false;
+        wantMic = false;
+        setStatus('off');
+        showNotice('リセットしました。マイクを押すと、聞き取りを始めます。', 6000);
+        return;
+      }
       if (code === 'not-allowed' || code === 'service-not-allowed') {
         wantMic = false;
         if (hadStarted) {
@@ -683,7 +713,7 @@ button{cursor:pointer}
       showNotice('聞き取りを始められませんでした。もう一度マイクを押してください。');
     }
   }
-  function startMic() {
+  function startMic(fromReset) {
     if (!SR) {
       setStatus('blocked');
       showNotice('このブラウザは音声入力に対応していません。iPhoneのSafariで開き直すか、「文字で入力」から文字を打ってください。');
@@ -693,6 +723,9 @@ button{cursor:pointer}
     wantMic = true;
     restarts = [];
     hadStarted = false;
+    lastResult = Date.now();
+    hinted = false;
+    resumeTry = !!fromReset;
     setStatus('on');
     startRec();
   }
@@ -703,6 +736,72 @@ button{cursor:pointer}
     setStatus('off');
   }
   micBtn.addEventListener('click', () => { if (wantMic) stopMic(); else startMic(); });
+
+  /* drop the current recognizer without letting its handlers restart it */
+  function killRec() {
+    const r = rec;
+    rec = null;
+    if (!r) return;
+    r.onresult = r.onerror = r.onend = r.onstart = null;
+    try { r.abort(); } catch (e) {}
+  }
+
+  /* reset: back to the first-launch state (display size and vanish time are kept) */
+  function resetAll() {
+    const resume = wantMic;
+    wantMic = false;
+    killRec();
+    restarts = [];
+    hadStarted = false;
+    hinted = false;
+    stoppedByHide = false;
+    lines.slice().forEach((r) => removeLine(r, true));
+    setLive('');
+    input.value = '';
+    autoGrow();
+    form.hidden = true;
+    kbdBtn.setAttribute('aria-expanded', 'false');
+    kbdBtn.textContent = '文字で入力';
+    settingsEl.hidden = true;
+    settingsBtn.setAttribute('aria-expanded', 'false');
+    settingsBtn.textContent = '設定';
+    setStatus('off');
+    try { if (wake) wake.release(); } catch (e) {}
+    wake = null;
+    keepAwake();
+    stage.scrollTop = 0;
+    if (resume) {
+      startMic(true);
+      showNotice('リセットして、聞き取りをやり直しています。', 4000);
+    } else {
+      showNotice('リセットしました。マイクを押すと、聞き取りを始めます。', 6000);
+    }
+  }
+  resetBtn.addEventListener('click', resetAll);
+
+  /* iPhone stops listening when the screen is left, so say so instead of looking stuck */
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      if (wantMic) {
+        wantMic = false;
+        killRec();
+        setLive('');
+        setStatus('off');
+        stoppedByHide = true;
+      }
+    } else if (stoppedByHide) {
+      stoppedByHide = false;
+      showNotice('画面を離れたため、聞き取りを止めました。マイクをもう一度押してください。');
+    }
+  });
+
+  /* long silence: point at the reset button once */
+  setInterval(() => {
+    if (wantMic && !hinted && Date.now() - lastResult > 60000) {
+      hinted = true;
+      showNotice('しばらく反応がありません。聞き取れないときは、右上の「リセット」を押してください。', 12000);
+    }
+  }, 5000);
 
   /* ---------- keep the screen on while talking ---------- */
   let wake = null;
