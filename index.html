@@ -1,0 +1,1239 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>その場字幕</title><meta name="apple-mobile-web-app-title" content="その場字幕"><link rel="apple-touch-icon" href="apple-touch-icon.png"><meta name="theme-color" content="#1B4DDB"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><style>[hidden]{display:none!important}html,body{margin:0}</style></head><body>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap">
+<style>
+/* Layout: one-screen caption stage. Guide sits at the top, captions stack up from the bottom, mic and composer are docked at the foot. */
+:root{
+  --bg:#F1F4F8;
+  --surface:#FFFFFF;
+  --ink:#0E1822;
+  --ink-2:#47556A;
+  --line:#D3DAE3;
+  --accent:#1B4DDB;
+  --accent-ink:#FFFFFF;
+  --live:#C9341A;
+  --live-ink:#FFFFFF;
+  --live-ring:rgba(201,52,26,.4);
+  --warn-bg:#FFF1E6;
+  --warn-line:#EDB48E;
+  --font:"BIZ UDPGothic","Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP","Yu Gothic",Meiryo,system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0A0F15;
+    --surface:#141C25;
+    --ink:#F2F5F9;
+    --ink-2:#A3B0C0;
+    --line:#263341;
+    --accent:#8CAEFF;
+    --accent-ink:#0A0F15;
+    --live:#FF7D60;
+    --live-ink:#1A0B07;
+    --live-ring:rgba(255,125,96,.4);
+    --warn-bg:#2B1A12;
+    --warn-line:#7B4A31;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0A0F15;
+  --surface:#141C25;
+  --ink:#F2F5F9;
+  --ink-2:#A3B0C0;
+  --line:#263341;
+  --accent:#8CAEFF;
+  --accent-ink:#0A0F15;
+  --live:#FF7D60;
+  --live-ink:#1A0B07;
+  --live-ring:rgba(255,125,96,.4);
+  --warn-bg:#2B1A12;
+  --warn-line:#7B4A31;
+  color-scheme:dark;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{box-sizing:border-box;height:100%}
+body{
+  height:100%;
+  padding-block:0;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--font);
+  font-size:16px;
+  line-height:1.5;
+  overflow:hidden;
+}
+button,textarea{font-family:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.app{
+  --cap:38px;
+  height:100%;
+  min-height:0;
+  max-width:760px;
+  margin-inline:auto;
+  display:flex;
+  flex-direction:column;
+}
+.app[data-size="1"]{--cap:28px}
+.app[data-size="2"]{--cap:38px}
+.app[data-size="3"]{--cap:50px}
+.app[data-size="4"]{--cap:64px}
+
+/* header */
+.top{
+  flex:none;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding-block:10px;
+}
+.top h1{margin:0;font-size:17px;font-weight:700;letter-spacing:.06em}
+.top-right{display:flex;align-items:center;gap:8px;min-width:0}
+.status{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  min-height:44px;
+  padding:0 12px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:var(--surface);
+  color:var(--ink-2);
+  font-size:14px;
+  white-space:nowrap;
+}
+.status[data-state="on"]{color:var(--ink)}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--ink-2);flex:none}
+.status[data-state="on"] .dot{background:var(--live);animation:blink 1.4s ease-in-out infinite}
+.btn-quiet{
+  min-height:44px;
+  padding:0 14px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:var(--surface);
+  color:var(--ink);
+  font-size:15px;
+}
+
+/* caption stage */
+.stage{
+  flex:1;
+  min-height:0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  border-top:1px solid var(--line);
+  scrollbar-width:thin;
+}
+.stage-inner{
+  min-height:100%;
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-end;
+  padding-block:12px 8px;
+}
+.guide{margin-bottom:auto;padding-block:8px 24px}
+.guide h2{margin:0 0 6px;font-size:21px;line-height:1.4;text-wrap:balance}
+.guide p{margin:0;color:var(--ink-2)}
+.how{list-style:none;margin:16px 0;padding:0;display:grid;gap:12px}
+.how li{display:flex;gap:12px;align-items:flex-start}
+.how svg{flex:none;width:24px;height:24px;margin-top:1px;color:var(--accent)}
+.how b{font-weight:700}
+
+.line{
+  padding-block:14px;
+  border-bottom:1px solid var(--line);
+  transition:opacity .5s linear;
+}
+.line.leaving{opacity:0!important}
+.line-text{
+  margin:0;
+  font-size:calc(var(--cap) * .66);
+  line-height:1.45;
+  font-weight:400;
+  color:var(--ink-2);
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+  word-break:auto-phrase;
+  line-break:strict;
+}
+.line.latest .line-text{
+  font-size:var(--cap);
+  line-height:1.38;
+  font-weight:700;
+  color:var(--ink);
+}
+.line-meta{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-top:8px;
+  font-size:12px;
+  color:var(--ink-2);
+  font-variant-numeric:tabular-nums;
+}
+.tag{
+  padding:0 8px;
+  border:1px solid var(--accent);
+  border-radius:999px;
+  color:var(--accent);
+  font-weight:700;
+}
+.track{flex:1;height:3px;border-radius:2px;background:var(--line);overflow:hidden}
+.bar{height:100%;background:var(--accent);transform-origin:left center;transition:transform .5s linear}
+.app[data-vanish="0"] .track{visibility:hidden}
+
+.live{
+  padding-block:14px;
+  font-size:var(--cap);
+  line-height:1.38;
+  font-weight:700;
+  color:var(--ink);
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+  word-break:auto-phrase;
+  line-break:strict;
+  text-decoration:underline dotted var(--live) 3px;
+  text-underline-offset:.22em;
+}
+
+/* notice */
+.notice{
+  flex:none;
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  margin-bottom:8px;
+  padding:12px 14px;
+  border:1px solid var(--warn-line);
+  border-radius:12px;
+  background:var(--warn-bg);
+  font-size:15px;
+}
+.notice span{flex:1;min-width:0}
+.notice button{
+  flex:none;
+  min-height:36px;
+  padding:0 12px;
+  border:1px solid var(--warn-line);
+  border-radius:10px;
+  background:transparent;
+  color:var(--ink);
+  font-size:14px;
+}
+
+/* settings */
+.settings{
+  flex:none;
+  display:grid;
+  gap:16px;
+  margin-bottom:8px;
+  padding:14px;
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:var(--surface);
+}
+.set-row{display:grid;gap:8px;min-width:0}
+.set-label{font-size:14px;font-weight:700;color:var(--ink-2)}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{
+  flex:1 1 0;
+  min-width:64px;
+  min-height:44px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:var(--bg);
+  color:var(--ink);
+  font-size:15px;
+}
+.seg button[aria-pressed="true"]{
+  background:var(--accent);
+  border-color:var(--accent);
+  color:var(--accent-ink);
+  font-weight:700;
+}
+.btn-clear{
+  min-height:44px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:var(--bg);
+  color:var(--ink);
+  font-size:15px;
+}
+
+/* dock */
+.dock{
+  flex:none;
+  display:grid;
+  gap:10px;
+  padding-block:10px 12px;
+  border-top:1px solid var(--line);
+}
+.dock-row{display:flex;gap:10px}
+.mic{
+  flex:1;
+  min-width:0;
+  min-height:72px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  padding:0 18px;
+  border:0;
+  border-radius:20px;
+  background:var(--accent);
+  color:var(--accent-ink);
+  font-size:20px;
+  font-weight:700;
+}
+.mic svg{width:30px;height:30px;flex:none}
+.mic.on{
+  background:var(--live);
+  color:var(--live-ink);
+  animation:ring 1.6s ease-out infinite;
+}
+.kbd{
+  flex:none;
+  min-height:72px;
+  padding:0 16px;
+  border:1px solid var(--line);
+  border-radius:20px;
+  background:var(--surface);
+  color:var(--ink);
+  font-size:15px;
+}
+.composer{display:flex;align-items:flex-end;gap:10px}
+#msg{
+  flex:1;
+  min-width:0;
+  min-height:60px;
+  max-height:140px;
+  padding:16px 14px;
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:var(--surface);
+  color:var(--ink);
+  font-size:18px;
+  line-height:1.4;
+  resize:none;
+}
+#msg::placeholder{color:var(--ink-2)}
+.send{
+  flex:none;
+  min-height:60px;
+  padding:0 18px;
+  border:0;
+  border-radius:16px;
+  background:var(--accent);
+  color:var(--accent-ink);
+  font-size:17px;
+  font-weight:700;
+}
+
+.status{min-width:44px;justify-content:center}
+#statusText{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (min-width:480px){
+  #statusText{position:static;width:auto;height:auto;overflow:visible;clip:auto}
+}
+.ver{margin:0;font-size:12px;color:var(--ink-2)}
+.vtag{margin-left:4px;font-size:12px;font-weight:400;letter-spacing:0;color:var(--ink-2)}
+@keyframes blink{50%{opacity:.35}}
+@keyframes ring{
+  0%{box-shadow:0 0 0 0 var(--live-ring)}
+  70%{box-shadow:0 0 0 14px rgba(0,0,0,0)}
+  100%{box-shadow:0 0 0 0 rgba(0,0,0,0)}
+}
+.engine{flex:none;padding:10px 14px;margin:0 0 6px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink)}
+.engine-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:16px}
+.engine-track{height:8px;margin-top:8px;border-radius:99px;background:var(--line);overflow:hidden}
+.engine-bar{height:100%;background:var(--accent);transform-origin:left center;transform:scaleX(0);transition:transform .3s linear}
+.engine p{margin:8px 0 0;font-size:14px;line-height:1.5;color:var(--ink-2)}
+.engine p:empty{display:none}
+.engine[data-state="error"]{border-color:var(--live)}
+.engine[data-state="ready"] .engine-track,.engine[data-state="error"] .engine-track{display:none}
+.meter{height:8px;border-radius:99px;background:var(--line);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--live);transform-origin:left center;transform:scaleX(0);transition:transform .09s linear}
+.hint{margin:0;font-size:13px;line-height:1.5;color:var(--ink-2)}
+.diag{margin:0;padding:10px;border-radius:10px;background:var(--bg);color:var(--ink-2);font:12px/1.6 ui-monospace,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere}
+.ver a{color:var(--accent)}
+.settings{max-height:52dvh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.more summary{min-height:44px;display:flex;align-items:center;font-size:14px;color:var(--ink-2)}
+.engine .btn-quiet{flex:none;white-space:nowrap;min-height:40px}
+.engine p{overflow-wrap:anywhere}
+.engine-row b{min-width:0}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+</style>
+
+<div class="app" id="app" data-size="2" data-vanish="60000">
+  <header class="top">
+    <h1>その場字幕 <small class="vtag">v8</small></h1>
+    <div class="top-right">
+      <span class="status" id="status" data-state="off"><i class="dot" aria-hidden="true"></i><span id="statusText">音声オフ</span></span>
+      <button class="btn-quiet" id="resetBtn" type="button">リセット</button>
+      <button class="btn-quiet" id="settingsBtn" type="button" aria-expanded="false" aria-controls="settings">設定</button>
+    </div>
+  </header>
+
+  <div class="engine" id="engine" data-state="loading" role="status">
+    <div class="engine-row">
+      <b id="engineText">文字起こしの準備中</b>
+      <button type="button" class="btn-quiet" id="engineRetry" hidden>やり直す</button>
+    </div>
+    <div class="engine-track"><div class="engine-bar" id="engineBar"></div></div>
+    <p id="engineSub"></p>
+  </div>
+
+  <main class="stage" id="stage" aria-label="会話の文字表示">
+    <div class="stage-inner">
+      <section class="guide" id="guide">
+        <h2>会話を、大きな文字で表示します</h2>
+        <p>耳が聞こえにくい方と話すときに使います。</p>
+        <ul class="how">
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
+            <span><b>声を文字にする</b> 下の「話を文字にする」を押して、ゆっくり話してもらいます。</span>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+            <span><b>文字で伝える</b> 「文字で入力」を押して、入力して送信します。</span>
+          </li>
+        </ul>
+        <p>表示は設定した時間がたつと消え、どこにも保存されません。</p>
+      </section>
+      <div id="lines" role="log" aria-live="polite"></div>
+      <div class="live" id="live" aria-hidden="true" hidden></div>
+    </div>
+  </main>
+
+  <div class="notice" id="notice" role="status" hidden>
+    <span id="noticeText"></span>
+    <button type="button" id="noticeClose">閉じる</button>
+  </div>
+
+  <section class="settings" id="settings" aria-label="表示の設定" hidden>
+    <div class="set-row">
+      <span class="set-label">文字の大きさ</span>
+      <div class="seg" id="sizeSeg"></div>
+    </div>
+    <div class="set-row">
+      <span class="set-label">消えるまでの時間</span>
+      <div class="seg" id="vanishSeg"></div>
+    </div>
+    <button type="button" class="btn-clear" id="clearBtn">いまの表示をすべて消す</button>
+    <div class="set-row">
+      <span class="set-label">文字起こしの精度</span>
+      <div class="seg" id="modelSeg"></div>
+    </div>
+    <p class="hint">「速い」は軽く、「高精度」は正確ですが重くなります。切り替えると、初めてのときだけ読み込みに時間がかかります。</p>
+    <details class="more"><summary>くわしい動作状態（うまく動かないとき）</summary><pre class="diag" id="diag" aria-label="動作の状態"></pre></details>
+    <p class="ver">バージョン 8（声の文字起こしは、この iPhone の中で行います）</p>
+    <p class="ver"><a href="%E8%A6%AA%E7%88%B6%E7%94%A8.html">うまく動かないとき：旧版（v7）を開く</a></p>
+  </section>
+
+  <div class="dock">
+    <div class="meter" id="meter" hidden aria-hidden="true"><i id="meterFill"></i></div>
+    <div class="dock-row">
+      <button class="mic" id="micBtn" type="button" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
+        <span id="micLabel">話を文字にする</span>
+      </button>
+      <button class="kbd" id="kbdBtn" type="button" aria-expanded="false" aria-controls="composer">文字で入力</button>
+    </div>
+    <form class="composer" id="composer" autocomplete="off" hidden>
+      <textarea id="msg" rows="1" enterkeyhint="send" aria-label="伝えたい内容" placeholder="話し相手の方は、ここに入力"></textarea>
+      <button class="send" type="submit">送信</button>
+    </form>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  document.documentElement.lang = 'ja';
+  const $ = (id) => document.getElementById(id);
+  const app = $('app'), stage = $('stage'), linesEl = $('lines'), liveEl = $('live'),
+        guide = $('guide'), notice = $('notice'), noticeText = $('noticeText'),
+        statusEl = $('status'), statusText = $('statusText'), micBtn = $('micBtn'),
+        form = $('composer'), input = $('msg'), settingsBtn = $('settingsBtn'), micLabel = $('micLabel'), kbdBtn = $('kbdBtn'), resetBtn = $('resetBtn'),
+        settingsEl = $('settings');
+
+  /* ---------- settings (per-viewer convenience only; captions are never stored) ---------- */
+  const KEY = 'sonoba-jimaku-settings';
+  const SIZES = [[1, '標準'], [2, '大'], [3, '特大'], [4, '最大']];
+  const VANISH = [[30000, '30秒'], [60000, '1分'], [300000, '5分'], [0, '消さない']];
+  const settings = { size: 2, vanish: 60000, model: 'base' };
+  try {
+    const s = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if (s) {
+      if (SIZES.some((x) => x[0] === s.size)) settings.size = s.size;
+      if (VANISH.some((x) => x[0] === s.vanish)) settings.vanish = s.vanish;
+      if (['tiny', 'base', 'small'].includes(s.model)) settings.model = s.model;
+    }
+  } catch (e) { /* storage unavailable */ }
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(settings)); } catch (e) {} };
+
+  /* ---------- captions ---------- */
+  const SAMPLE_LIFE = 30000;
+  const MAX_LINES = 1000;
+  const timeFmt = new Intl.DateTimeFormat('ja-JP', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const lines = [];
+  let seq = 0;
+  let liveText = '';
+
+  const lifeOf = (r) => (r.sample ? SAMPLE_LIFE : settings.vanish);
+  const scrollDown = () => requestAnimationFrame(() => { stage.scrollTop = stage.scrollHeight; });
+
+  function updateGuide() {
+    guide.hidden = !!liveText || lines.some((r) => !r.sample);
+  }
+
+  function markLatest() {
+    const els = [...linesEl.children].filter((e) => !e.classList.contains('leaving'));
+    els.forEach((e) => e.classList.remove('latest'));
+    if (!liveText && els.length) els[els.length - 1].classList.add('latest');
+  }
+
+  function removeLine(r, instant) {
+    const i = lines.indexOf(r);
+    if (i >= 0) lines.splice(i, 1);
+    if (instant) {
+      r.el.remove();
+    } else {
+      r.el.classList.add('leaving');
+      setTimeout(() => r.el.remove(), 500);
+    }
+    updateGuide();
+    markLatest();
+  }
+
+  function addLine(raw, opts) {
+    const sample = !!(opts && opts.sample);
+    const text = String(raw).trim();
+    if (!text) return;
+    if (!sample) lines.filter((r) => r.sample).forEach((r) => removeLine(r, true));
+
+    const el = document.createElement('article');
+    el.className = 'line';
+    const p = document.createElement('p');
+    p.className = 'line-text';
+    p.textContent = text;
+    const meta = document.createElement('div');
+    meta.className = 'line-meta';
+    const t = document.createElement('time');
+    t.textContent = timeFmt.format(new Date());
+    meta.appendChild(t);
+    if (sample) {
+      const tag = document.createElement('span');
+      tag.className = 'tag';
+      tag.textContent = '見本';
+      meta.appendChild(tag);
+    }
+    const track = document.createElement('div');
+    track.className = 'track';
+    const bar = document.createElement('div');
+    bar.className = 'bar';
+    track.appendChild(bar);
+    meta.appendChild(track);
+    el.append(p, meta);
+
+    const rec = { id: ++seq, born: Date.now(), sample, el, bar };
+    lines.push(rec);
+    linesEl.appendChild(el);
+    while (lines.length > MAX_LINES) removeLine(lines[0], true);
+
+    updateGuide();
+    markLatest();
+    scrollDown();
+    tick();
+  }
+
+  function tick() {
+    const now = Date.now();
+    lines.slice().forEach((r) => {
+      const life = lifeOf(r);
+      if (!life) {
+        if (!r.fixed) {
+          r.bar.style.transform = 'scaleX(1)';
+          r.el.style.opacity = '';
+          r.fixed = true;
+        }
+        return;
+      }
+      r.fixed = false;
+      const remain = r.born + life - now;
+      if (remain <= 0) { removeLine(r, false); return; }
+      r.bar.style.transform = 'scaleX(' + (remain / life).toFixed(3) + ')';
+      const fadeSpan = Math.min(8000, life * 0.3);
+      const k = Math.min(1, remain / fadeSpan);
+      r.el.style.opacity = (0.35 + 0.65 * k).toFixed(2);
+    });
+  }
+
+  function setLive(text) {
+    liveText = String(text || '').trim();
+    liveEl.textContent = liveText;
+    liveEl.hidden = !liveText;
+    updateGuide();
+    markLatest();
+    if (liveText) scrollDown();
+  }
+
+  /* ---------- notice ---------- */
+  let noticeTimer = null;
+  function showNotice(msg, autoHideMs) {
+    clearTimeout(noticeTimer);
+    noticeText.textContent = msg;
+    notice.hidden = false;
+    if (autoHideMs) noticeTimer = setTimeout(() => { notice.hidden = true; }, autoHideMs);
+  }
+  function hideNotice() { clearTimeout(noticeTimer); notice.hidden = true; }
+  $('noticeClose').addEventListener('click', hideNotice);
+
+  /* ---------- settings UI ---------- */
+  const syncers = [];
+  function buildSeg(host, opts, key) {
+    const btns = opts.map(([val, label]) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      b.addEventListener('click', () => { settings[key] = val; save(); applySettings(); scrollDown(); });
+      host.appendChild(b);
+      return b;
+    });
+    syncers.push(() => btns.forEach((b, i) => b.setAttribute('aria-pressed', String(opts[i][0] === settings[key]))));
+  }
+  function applySettings() {
+    app.dataset.size = String(settings.size);
+    app.dataset.vanish = String(settings.vanish);
+    syncers.forEach((f) => f());
+    tick();
+  }
+  buildSeg($('sizeSeg'), SIZES, 'size');
+  buildSeg($('vanishSeg'), VANISH, 'vanish');
+
+  settingsBtn.addEventListener('click', () => {
+    const open = settingsEl.hidden;
+    settingsEl.hidden = !open;
+    settingsBtn.setAttribute('aria-expanded', String(open));
+    settingsBtn.textContent = open ? '閉じる' : '設定';
+  });
+  $('clearBtn').addEventListener('click', clearLines);
+
+  /* ---------- typed input ---------- */
+  function autoGrow() {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 140) + 'px';
+  }
+  kbdBtn.addEventListener('click', () => {
+    const open = form.hidden;
+    form.hidden = !open;
+    kbdBtn.setAttribute('aria-expanded', String(open));
+    kbdBtn.textContent = open ? '文字入力を閉じる' : '文字で入力';
+    if (open) { input.focus(); autoGrow(); }
+    scrollDown();
+  });
+  input.addEventListener('input', autoGrow);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
+      e.preventDefault();
+      if (form.requestSubmit) form.requestSubmit();
+      else form.dispatchEvent(new Event('submit', { cancelable: true }));
+    }
+  });
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const t = input.value.trim();
+    if (!t) return;
+    addLine(t);
+    input.value = '';
+    autoGrow();
+    input.focus();
+  });
+
+  /* ---------- voice input (speech-to-text runs inside the phone) ---------- */
+  /* ---- audio helpers (plain functions, no page access) ---- */
+
+  /* 44.1 / 48 kHz microphone audio -> 16 kHz, averaging the samples that fall into each step */
+  function makeResampler(inRate, outRate) {
+    const ratio = inRate / outRate;
+    const half = ratio / 2;
+    let carry = new Float32Array(0);
+    let pos = half;   // centre of the next output window, counted from the start of `carry`
+    return {
+      process(input) {
+        const data = new Float32Array(carry.length + input.length);
+        data.set(carry);
+        data.set(input, carry.length);
+        const out = [];
+        let p = pos;
+        while (p + half < data.length) {
+          const a = Math.max(0, Math.ceil(p - half));
+          const b = Math.min(data.length - 1, Math.ceil(p + half) - 1);
+          let sum = 0;
+          let n = 0;
+          for (let j = a; j <= b; j++) { sum += data[j]; n++; }
+          out.push(n ? sum / n : 0);
+          p += ratio;
+        }
+        const keepFrom = Math.max(0, Math.floor(p - half));
+        carry = data.slice(keepFrom);
+        pos = p - keepFrom;
+        return Float32Array.from(out);
+      },
+    };
+  }
+
+  /* cuts a stream of 16 kHz audio into sentences: starts when the voice rises above the
+     background, ends after 0.7 s of quiet (or at 12 s at the latest) */
+  function makeSegmenter(onSegment, onLevel, onState) {
+    const FRAME = 320;        // 20 ms
+    const PRE = 15;           // 0.3 s of lead-in kept before the voice
+    const END_SIL = 35;       // 0.7 s of quiet ends a sentence
+    const SOFT_MAX = 300;     // after 6 s a 0.2 s pause is enough to cut
+    const HARD_MAX = 600;     // never longer than 12 s
+    const MIN_VOICED = 15;    // ignore anything with less than 0.3 s of voice
+    const TAIL = 10;          // keep 0.2 s of quiet after the voice
+    let rest = new Float32Array(0);
+    let floor = 0.004;        // learned background level
+    let speaking = false;
+    let frames = [];
+    let pre = [];
+    let onRun = 0;
+    let silRun = 0;
+    let voiced = 0;
+
+    function rmsOf(f) {
+      let s = 0;
+      for (let i = 0; i < f.length; i++) s += f[i] * f[i];
+      return Math.sqrt(s / f.length);
+    }
+    function finish() {
+      const keep = Math.max(1, frames.length - Math.max(0, silRun - TAIL));
+      if (voiced >= MIN_VOICED) {
+        const out = new Float32Array(keep * FRAME);
+        for (let i = 0; i < keep; i++) out.set(frames[i], i * FRAME);
+        onSegment(out);
+      }
+      speaking = false;
+      frames = [];
+      pre = [];
+      onRun = 0;
+      silRun = 0;
+      voiced = 0;
+      if (onState) onState(false);
+    }
+    function frame(f) {
+      const rms = rmsOf(f);
+      onLevel(rms);
+      const tOn = Math.max(0.012, floor * 3);
+      const tOff = Math.max(0.008, floor * 2);
+      if (!speaking) {
+        if (rms < tOn) floor = Math.min(0.05, Math.max(0.001, floor * 0.98 + rms * 0.02));
+        pre.push(f);
+        if (pre.length > PRE) pre.shift();
+        onRun = rms > tOn ? onRun + 1 : 0;
+        if (onRun >= 3) {
+          speaking = true;
+          if (onState) onState(true);
+          frames = pre;
+          pre = [];
+          silRun = 0;
+          voiced = onRun;
+          onRun = 0;
+        }
+      } else {
+        frames.push(f);
+        if (rms > tOff) { silRun = 0; voiced++; } else silRun++;
+        const len = frames.length;
+        if (silRun >= END_SIL || (len >= SOFT_MAX && silRun >= 10) || len >= HARD_MAX) finish();
+      }
+    }
+    return {
+      push(samples) {
+        let data = samples;
+        if (rest.length) {
+          data = new Float32Array(rest.length + samples.length);
+          data.set(rest);
+          data.set(samples, rest.length);
+        }
+        let i = 0;
+        for (; i + FRAME <= data.length; i += FRAME) frame(data.slice(i, i + FRAME));
+        rest = data.slice(i);
+      },
+      flush() {
+        if (speaking) finish();
+        rest = new Float32Array(0);
+      },
+    };
+  }
+
+  /* the recognizer sometimes invents text for noise: drop the usual inventions and loops */
+  function cleanText(raw) {
+    let t = String(raw || '').replace(/\s+/g, ' ').trim();
+    t = t.replace(/[\[(（【](音楽|拍手|笑い|笑|Music|Applause|BLANK_AUDIO)[\])）】]/gi, '').trim();
+    if (!t) return '';
+    if (/^[\s、。,.!！?？…・ー~\-]+$/.test(t)) return '';
+    if (/^(ご視聴ありがとうございました|ご視聴ありがとうございます|チャンネル登録(お願いします|よろしくお願いします)?|最後までご視聴いただきありがとうございました)[。.!！\s]*$/.test(t)) return '';
+    t = t.replace(/(.{1,12}?)\1{5,}/g, '$1$1');
+    return t.trim();
+  }
+
+
+  const MODELS = [['tiny', '速い'], ['base', 'ふつう'], ['small', '高精度']];
+  const MODEL_IDS = { tiny: 'onnx-community/whisper-tiny', base: 'onnx-community/whisper-base', small: 'onnx-community/whisper-small' };
+  const VER = '8';
+
+  const engineEl = $('engine'), engineText = $('engineText'), engineSub = $('engineSub'),
+        engineBar = $('engineBar'), engineRetry = $('engineRetry'), meterEl = $('meter'),
+        meterFill = $('meterFill'), diagEl = $('diag');
+
+  /* --- engine (a worker that holds the model) --- */
+  let worker = null;
+  let engine = { state: 'loading', pct: 0, device: '', model: '', err: '', flashUntil: 0 };
+  let engineGen = 0;
+  let epoch = 0;             // bumped by reset: anything older than this is thrown away
+  let jobId = 0;
+  let busy = false;
+  let cur = null;
+  let busySince = 0;
+  const queue = [];
+  let lastMs = 0;
+  let jobs = 0;
+  let runFails = 0;
+  const diagLog = [];
+
+  function note(msg) {
+    diagLog.push(new Date().toTimeString().slice(0, 8) + ' ' + msg);
+    while (diagLog.length > 6) diagLog.shift();
+  }
+
+  /* --- microphone state --- */
+  let actx = null, node = null, sink = null, stream = null, srcNode = null;
+  let resampler = null, seg = null;
+  let wantMic = false, capturing = false, blocked = false, speaking = false;
+  let micToken = 0;
+  let peak = 0, level = 0, startAt = 0, silentHinted = false, lastPaint = 0;
+  let stoppedByHide = false;
+
+  function working() {
+    return speaking || (busy && cur && cur.epoch === epoch) || queue.length > 0;
+  }
+  function updateIndicator() { setLive(working() ? '…' : ''); }
+
+  function refresh() {
+    let state = 'off';
+    let text = '音声オフ';
+    if (blocked) { state = 'blocked'; text = '音声は使えません'; }
+    else if (wantMic) { state = 'on'; text = engine.state === 'ready' ? '聞き取り中' : '聞き取り中（準備中）'; }
+    else if (engine.state === 'loading') text = '準備中 ' + engine.pct + '%';
+    statusEl.dataset.state = state;
+    statusText.textContent = text;
+    micBtn.classList.toggle('on', wantMic);
+    micBtn.setAttribute('aria-pressed', String(wantMic));
+    micLabel.textContent = wantMic ? '聞き取りを止める' : '話を文字にする';
+    meterEl.hidden = !wantMic;
+
+    const showEngine = engine.state !== 'ready' || Date.now() < engine.flashUntil;
+    engineEl.hidden = !showEngine;
+    engineEl.dataset.state = engine.state;
+    if (engine.state === 'loading') {
+      engineText.textContent = '文字起こしの準備中 ' + engine.pct + '%';
+      engineSub.textContent = engine.pct < 3 ? '初回だけ時間がかかります（Wi-Fi推奨）。2回目からは短くなります。' : '準備が終わるまでは、そのままお待ちください。';
+      engineBar.style.transform = 'scaleX(' + (engine.pct / 100).toFixed(2) + ')';
+    } else if (engine.state === 'ready') {
+      engineText.textContent = '準備ができました';
+      engineSub.textContent = '';
+      engineBar.style.transform = 'scaleX(1)';
+    } else {
+      engineText.textContent = '文字起こしの準備に失敗しました';
+      engineSub.textContent = engine.err || '';
+      engineBar.style.transform = 'scaleX(0)';
+    }
+    engineRetry.hidden = engine.state !== 'error';
+    updateDiag();
+  }
+
+  function updateDiag() {
+    if (settingsEl.hidden) return;
+    const lines = [
+      'エンジン: ' + (engine.state === 'ready' ? '使えます（' + (engine.device === 'webgpu' ? 'GPU' : '通常') + '）' : engine.state === 'loading' ? '準備中 ' + engine.pct + '%' : '失敗'),
+      'モデル: ' + (MODEL_IDS[settings.model] || ''),
+      '変換した回数: ' + jobs + (runFails ? '（失敗 ' + runFails + '）' : ''),
+      '直近の変換時間: ' + (lastMs ? (lastMs / 1000).toFixed(1) + '秒' : '-'),
+      '待ち: ' + queue.length + (busy ? '＋変換中' : ''),
+      'マイク: ' + (capturing ? '入力中（音量 ' + level.toFixed(3) + '）' : '止まっています'),
+    ];
+    if (engine.raw) lines.push('エラー内容: ' + engine.raw);
+    diagLog.forEach((l) => lines.push(l));
+    diagEl.textContent = lines.join('\n');
+  }
+
+  /* --- worker handling --- */
+  function startEngine() {
+    const gen = ++engineGen;
+    if (worker) {
+      worker.onmessage = worker.onerror = null;
+      try { worker.terminate(); } catch (e) { /* ignore */ }
+      worker = null;
+    }
+    busy = false;
+    cur = null;
+    engine = { state: 'loading', pct: 0, device: '', model: settings.model, err: '', raw: '', flashUntil: 0 };
+    refresh();
+    try {
+      worker = new Worker('worker.js?v=' + VER, { type: 'module' });
+    } catch (e) {
+      engineFail('この端末では文字起こしの部品を動かせませんでした。', String(e && e.message ? e.message : e));
+      return;
+    }
+    worker.onmessage = (ev) => { if (gen === engineGen) onWorker(ev.data); };
+    worker.onerror = (ev) => {
+      if (gen !== engineGen) return;
+      engineFail('部品を読み込めませんでした。通信できる場所で「やり直す」を押してください。', String(ev && ev.message ? ev.message : 'worker error'));
+    };
+    worker.postMessage({ type: 'load', model: MODEL_IDS[settings.model], gpu: true });
+  }
+
+  function engineFail(msg, raw) {
+    engine.state = 'error';
+    engine.err = msg;
+    engine.raw = raw || '';
+    note('error: ' + (raw || msg));
+    refresh();
+  }
+
+  function onWorker(m) {
+    if (m.type === 'progress') {
+      engine.pct = m.pct;
+      refresh();
+    } else if (m.type === 'ready') {
+      engine.state = 'ready';
+      engine.device = m.device;
+      engine.model = m.model;
+      engine.err = '';
+      engine.flashUntil = Date.now() + 2500;
+      note('ready ' + m.device + ' warm ' + m.warmMs + 'ms');
+      refresh();
+      setTimeout(refresh, 2600);
+      pump();
+    } else if (m.type === 'note') {
+      note(m.message);
+      updateDiag();
+    } else if (m.type === 'result') {
+      if (!cur || m.id !== cur.id) return;
+      const mine = cur;
+      busy = false;
+      cur = null;
+      lastMs = m.ms;
+      jobs++;
+      runFails = 0;
+      if (mine.epoch === epoch) {
+        const t = cleanText(m.text);
+        if (t) addLine(t);
+      }
+      pump();
+      updateIndicator();
+      updateDiag();
+    } else if (m.type === 'error') {
+      if (m.stage === 'load') {
+        if (settings.model !== 'base' && engine.state === 'loading') {
+          settings.model = 'base';
+          save();
+          applySettings();
+          showNotice('選んだモデルを読み込めなかったため、「ふつう」に戻しました。', 8000);
+          startEngine();
+        } else {
+          engineFail('文字起こしの準備ができませんでした。通信できる場所で「やり直す」を押してください。', m.message);
+        }
+      } else {
+        if (cur && m.id === cur.id) { busy = false; cur = null; }
+        runFails++;
+        note('run error: ' + m.message);
+        if (runFails >= 3) {
+          showNotice('文字にする処理が続けて失敗したため、入れ直します。', 6000);
+          runFails = 0;
+          startEngine();
+        } else {
+          pump();
+        }
+        updateIndicator();
+        updateDiag();
+      }
+    }
+  }
+
+  function enqueue(audio) {
+    queue.push({ audio, epoch });
+    while (queue.length > 4) queue.shift();
+    pump();
+  }
+
+  function pump() {
+    while (!busy && engine.state === 'ready' && queue.length) {
+      const j = queue.shift();
+      if (j.epoch !== epoch) continue;
+      busy = true;
+      busySince = Date.now();
+      cur = { id: ++jobId, epoch: j.epoch };
+      worker.postMessage({ type: 'run', id: cur.id, audio: j.audio }, [j.audio.buffer]);
+    }
+    updateIndicator();
+  }
+
+  engineRetry.addEventListener('click', () => startEngine());
+
+  /* --- microphone --- */
+  const WORKLET_SRC =
+    "class Cap extends AudioWorkletProcessor{constructor(){super();this.b=new Float32Array(2048);this.n=0}" +
+    "process(i){const c=i[0]&&i[0][0];if(c){for(let k=0;k<c.length;k++){this.b[this.n++]=c[k];" +
+    "if(this.n===2048){this.port.postMessage(this.b.slice(0));this.n=0}}}return true}}" +
+    "registerProcessor('cap',Cap);";
+
+  function onChunk(data) {
+    if (!capturing || !resampler) return;
+    seg.push(resampler.process(data));
+  }
+  function onSegment(a) { enqueue(a); }
+  function onLevel(rms) {
+    level = rms;
+    if (rms > peak) peak = rms;
+    const now = Date.now();
+    if (now - lastPaint > 90) {
+      lastPaint = now;
+      meterFill.style.transform = 'scaleX(' + Math.min(1, rms * 9).toFixed(2) + ')';
+    }
+  }
+  function onState(on) { speaking = on; updateIndicator(); }
+
+  async function ensureNode() {
+    if (node) return;
+    if (actx.audioWorklet && window.AudioWorkletNode) {
+      try {
+        const url = URL.createObjectURL(new Blob([WORKLET_SRC], { type: 'application/javascript' }));
+        await actx.audioWorklet.addModule(url);
+        node = new AudioWorkletNode(actx, 'cap', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1] });
+        node.port.onmessage = (e) => onChunk(e.data);
+      } catch (e) { node = null; note('worklet unavailable'); }
+    }
+    if (!node) {
+      node = actx.createScriptProcessor(4096, 1, 1);
+      node.onaudioprocess = (e) => onChunk(new Float32Array(e.inputBuffer.getChannelData(0)));
+    }
+    sink = actx.createGain();
+    sink.gain.value = 0;
+    node.connect(sink);
+    sink.connect(actx.destination);
+  }
+
+  function stopCapture(flush) {
+    capturing = false;
+    micToken++;                                  // a start that is still waiting is cancelled
+    if (flush && seg) { try { seg.flush(); } catch (e) { /* ignore */ } }
+    seg = null;
+    resampler = null;
+    speaking = false;
+    try { if (srcNode) srcNode.disconnect(); } catch (e) { /* ignore */ }
+    srcNode = null;
+    if (stream) {
+      const s = stream;
+      stream = null;
+      s.getTracks().forEach((t) => { t.onended = null; try { t.stop(); } catch (e) { /* ignore */ } });
+    }
+    try { if (actx && actx.state === 'running') actx.suspend().catch(() => {}); } catch (e) { /* ignore */ }
+    level = 0;
+    meterFill.style.transform = 'scaleX(0)';
+  }
+
+  async function startMic() {
+    if (wantMic) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      blocked = true;
+      refresh();
+      showNotice('このブラウザではマイクを使えません。iPhone の Safari で開き直すか、「文字で入力」を使ってください。');
+      return;
+    }
+    hideNotice();
+    blocked = false;
+    wantMic = true;
+    const my = ++micToken;
+    refresh();
+    try {
+      if (!actx) {
+        actx = new AC();
+        actx.onstatechange = () => {
+          if (actx.state === 'running' || !wantMic || !capturing) return;
+          const c = actx.resume ? actx.resume().catch(() => {}) : null;
+          setTimeout(() => {
+            if (wantMic && capturing && actx.state !== 'running') {
+              stopMic();
+              showNotice('マイクが一時的に使えなくなりました（電話などの割り込み）。マイクをもう一度押してください。');
+            }
+          }, 1500);
+          return c;
+        };
+      }
+      const resumed = actx.resume ? actx.resume().catch(() => {}) : null;   // inside the tap: allowed
+      const s = await navigator.mediaDevices.getUserMedia({
+        audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      if (my !== micToken || !wantMic) { s.getTracks().forEach((t) => t.stop()); return; }
+      await resumed;
+      await ensureNode();
+      if (my !== micToken || !wantMic) { s.getTracks().forEach((t) => t.stop()); return; }
+      stream = s;
+      s.getTracks().forEach((t) => {
+        t.onended = () => {
+          if (stream === s && wantMic) {
+            stopMic();
+            showNotice('マイクが切れました。もう一度マイクを押してください。');
+          }
+        };
+      });
+      srcNode = actx.createMediaStreamSource(s);
+      srcNode.connect(node);
+      resampler = makeResampler(actx.sampleRate, 16000);
+      seg = makeSegmenter(onSegment, onLevel, onState);
+      peak = 0;
+      silentHinted = false;
+      startAt = Date.now();
+      capturing = true;
+      if (actx.state !== 'running') await actx.resume().catch(() => {});
+      note('mic on ' + actx.sampleRate + 'Hz');
+    } catch (err) {
+      if (my !== micToken) return;
+      wantMic = false;
+      capturing = false;
+      const n = err && err.name;
+      if (n === 'NotAllowedError' || n === 'SecurityError') {
+        blocked = true;
+        showNotice('マイクが許可されていません。アドレスバー左の「ぁあ」から「Webサイトの設定」を開き、マイクを許可してください。');
+      } else if (n === 'NotFoundError' || n === 'OverconstrainedError') {
+        blocked = true;
+        showNotice('マイクが見つかりません。「文字で入力」から文字を打ってください。');
+      } else {
+        showNotice('マイクを始められませんでした（' + (n || 'エラー') + '）。もう一度マイクを押してください。');
+      }
+      note('mic error ' + n);
+    } finally {
+      refresh();
+    }
+  }
+
+  function stopMic() {
+    wantMic = false;
+    stopCapture(true);        // words already said are still turned into text
+    refresh();
+    updateIndicator();
+  }
+  micBtn.addEventListener('click', () => { if (wantMic) stopMic(); else startMic(); });
+
+  function clearLines() {
+    lines.length = 0;
+    linesEl.textContent = '';
+    updateGuide();
+    markLatest();
+  }
+  /* reset: everything is dropped at once; nothing waits for the engine */
+  function resetAll() {
+    epoch++;
+    queue.length = 0;
+    wantMic = false;
+    blocked = false;
+    stoppedByHide = false;
+    stopCapture(false);
+    clearLines();
+    setLive('');
+    input.value = '';
+    autoGrow();
+    form.hidden = true;
+    kbdBtn.setAttribute('aria-expanded', 'false');
+    kbdBtn.textContent = '文字で入力';
+    settingsEl.hidden = true;
+    settingsBtn.setAttribute('aria-expanded', 'false');
+    settingsBtn.textContent = '設定';
+    stage.scrollTop = 0;
+    refresh();
+    showNotice('リセットしました。音声入力を止めました。マイクを押すと、聞き取りを始めます。', 6000);
+    try { if (wake) wake.release(); } catch (e) { /* ignore */ }
+    wake = null;
+    keepAwake();
+  }
+  resetBtn.addEventListener('click', resetAll);
+
+  /* the iPhone stops the microphone when the screen is left */
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      if (wantMic) { stopMic(); stoppedByHide = true; }
+    } else if (stoppedByHide) {
+      stoppedByHide = false;
+      showNotice('画面を離れたため、聞き取りを止めました。マイクをもう一度押してください。');
+    }
+  });
+
+  /* model choice */
+  buildSeg($('modelSeg'), MODELS, 'model');
+  $('modelSeg').addEventListener('click', () => {
+    if (settings.model !== engine.model) {
+      showNotice('モデルを切り替えています。初めて使うモデルは、読み込みに時間がかかります。', 8000);
+      startEngine();
+    }
+  });
+
+  /* watchdog: a conversion that never comes back, or a microphone that hears nothing */
+  setInterval(() => {
+    if (busy && Date.now() - busySince > 45000) {
+      showNotice('文字にする処理に時間がかかっているため、入れ直します。', 6000);
+      note('watchdog restart');
+      startEngine();
+    }
+    if (capturing && !silentHinted && Date.now() - startAt > 7000 && peak < 0.0015) {
+      silentHinted = true;
+      showNotice('音が入っていないようです。マイクの許可と、iPhone の音量・マイクをふさいでいないかを確認してください。', 12000);
+    }
+    updateDiag();
+  }, 1500);
+
+  /* start the engine once the offline helper (service worker) is in charge, so that its files are kept */
+  function whenControlled() {
+    return new Promise((resolve) => {
+      if (!('serviceWorker' in navigator)) { resolve(); return; }
+      navigator.serviceWorker.register('sw.js?v=' + VER).catch((e) => note('sw: ' + (e && e.message)));
+      if (navigator.serviceWorker.controller) { resolve(); return; }
+      const done = () => resolve();
+      navigator.serviceWorker.addEventListener('controllerchange', done, { once: true });
+      setTimeout(done, 4000);
+    });
+  }
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* ignore */ }
+  whenControlled().then(startEngine);
+  refresh();
+
+
+  /* ---------- keep the screen on while talking ---------- */
+  let wake = null;
+  async function keepAwake() {
+    try {
+      if ('wakeLock' in navigator && !wake && document.visibilityState === 'visible') {
+        wake = await navigator.wakeLock.request('screen');
+        wake.addEventListener('release', () => { wake = null; });
+      }
+    } catch (e) { wake = null; }
+  }
+  document.addEventListener('visibilitychange', keepAwake);
+  window.addEventListener('pointerdown', keepAwake, { once: true });
+
+  /* ---------- start ---------- */
+  applySettings();
+  addLine('こんにちは。ゆっくり話しますね。聞こえにくいときは、遠慮なく言ってください。', { sample: true });
+  setInterval(tick, 500);
+  keepAwake();
+})();
+</script>
+
+<style>html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);-webkit-text-size-adjust:100%}@supports(height:100dvh){html{height:100dvh}}textarea{-webkit-appearance:none;appearance:none}</style></body></html>
